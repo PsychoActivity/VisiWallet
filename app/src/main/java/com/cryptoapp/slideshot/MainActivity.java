@@ -4,6 +4,9 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Base64;
@@ -14,6 +17,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.github.clans.fab.FloatingActionButton;
 import com.google.common.base.Joiner;
 import com.google.common.hash.Hashing;
 
@@ -23,27 +27,35 @@ import org.bitcoinj.wallet.DeterministicSeed;
 import org.bitcoinj.wallet.Wallet;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
     private static final int RESULT_LOAD_IMG = 1;
-    ImageView image_view;
-    TextView textView;
+    private static final int REQUEST_TAKE_PHOTO = 1;
+
+
+    private String mCurrentPhotoPath;
+
+
+    private Uri fileUri;
+
+
     NetworkParameters params = TestNet3Params.get();
 
     long unixTime = System.currentTimeMillis() / 1000L;
-    Button mGetPhoto, mTakePhoto;
+    FloatingActionButton mGetPhoto, mTakePhoto;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        image_view = findViewById(R.id.imageView);
-        textView = findViewById(R.id.textView);
-        mGetPhoto = findViewById(R.id.getPhoto);
+        mGetPhoto = findViewById(R.id.choosePhoto);
         mTakePhoto = findViewById(R.id.takePhoto);
 
         mGetPhoto.setOnClickListener(new View.OnClickListener() {
@@ -59,11 +71,40 @@ public class MainActivity extends AppCompatActivity {
         mTakePhoto.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //take photo with camera
+                dispatchTakePictureIntent();
             }
         });
 
     }
+
+    private void dispatchTakePictureIntent() {
+
+        //TODO: Add custom camera class instead of using INTENT
+
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        // Ensure that there's a camera activity to handle the intent
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            // Create the File where the photo should go
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+                fileUri = Uri.fromFile(photoFile);
+            } catch (IOException ex) {
+                // Error occurred while creating the File
+
+            }
+            // Continue only if the File was successfully created
+            if (photoFile != null) {
+                Uri photoURI = FileProvider.getUriForFile(this,
+                        "com.cryptoapp.slideshot.fileprovider",
+                        photoFile);
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
+            }
+        }
+    }
+
+
 
 
     /*
@@ -86,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
                     final Uri imageUri = data.getData();
                     final InputStream imageStream = getContentResolver().openInputStream(imageUri);
                     final Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
-                    image_view.setImageBitmap(selectedImage);
+//                    image_view.setImageBitmap(selectedImage);
                     String imgString = Base64.encodeToString(getBytesFromBitmap(selectedImage),
                             Base64.NO_WRAP);
 
@@ -103,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
 //                peerGroup.addWallet(wallet);
 //                peerGroup.startAsync();
                     String seedPhrase = Joiner.on(" ").join(seed.getMnemonicCode());
-                    textView.setText(wallet.toString());
+//                    textView.setText(wallet.toString());
                     Log.i("wallet", wallet.toString());
                     Log.i("Wallet", wallet.currentReceiveAddress().toString());
 
@@ -118,6 +159,22 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "You haven't picked an Image",Toast.LENGTH_LONG).show();
             }
         }
+
+    private File createImageFile() throws IOException {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        // Save a file: path for use with ACTION_VIEW intents
+        mCurrentPhotoPath = image.getAbsolutePath();
+        return image;
+    }
 
 
 
