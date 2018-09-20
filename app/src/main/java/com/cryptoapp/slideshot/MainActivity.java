@@ -32,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
     ImageView image_view;
     TextView textView;
     NetworkParameters params = TestNet3Params.get();
+
     long unixTime = System.currentTimeMillis() / 1000L;
     Button mGetPhoto, mTakePhoto;
 
