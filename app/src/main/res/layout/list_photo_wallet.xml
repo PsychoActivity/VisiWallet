@@ -1,6 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent"
-    android:layout_height="match_parent">
+<android.support.v7.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/card_view"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="7dp"
+    app:cardElevation="4dp"
+    style="@style/CardView.Light"
+    >
 
-</android.support.constraint.ConstraintLayout>
+    <android.support.constraint.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+    <ImageView
+        android:id="@+id/photoView"
+        android:layout_width="100dp"
+        android:layout_height="200dp"
+        />
+
+    <TextView
+        android:id="@+id/accountBalanceView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/photoView"
+        app:layout_constraintEnd_toStartOf="@id/qrCodeView"
+        android:textAlignment="center"
+        android:text="0.00 BTC"
+        android:textStyle="bold"
+        android:shadowColor="#ff0000"
+        android:shadowRadius="5"
+        android:textColor="@android:color/black"
+        android:textSize="30dp"
+        />
+
+        <ImageView
+            android:id="@+id/qrCodeView"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintRight_toRightOf="parent"/>
+
+    </android.support.constraint.ConstraintLayout>
+
+</android.support.v7.widget.CardView>

@@ -9,6 +9,7 @@ import android.provider.MediaStore;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.RecyclerView;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
@@ -46,6 +47,11 @@ public class MainActivity extends AppCompatActivity {
     private Uri fileUri;
 
 
+    private ImageView mPhotoView;
+
+    private RecyclerView recyclerView;
+
+
     NetworkParameters params = TestNet3Params.get();
 
     long unixTime = System.currentTimeMillis() / 1000L;
@@ -57,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         mGetPhoto = findViewById(R.id.choosePhoto);
         mTakePhoto = findViewById(R.id.takePhoto);
+        recyclerView = findViewById(R.id.recyclerView);
 
         mGetPhoto.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -127,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
                     final Uri imageUri = data.getData();
                     final InputStream imageStream = getContentResolver().openInputStream(imageUri);
                     final Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
-//                    image_view.setImageBitmap(selectedImage);
+                    mPhotoView.setImageBitmap(selectedImage);
                     String imgString = Base64.encodeToString(getBytesFromBitmap(selectedImage),
                             Base64.NO_WRAP);
 
