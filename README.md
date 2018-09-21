@@ -7,7 +7,7 @@ Create a discreet bitcoin wallet out of a camera photograph or image from the in
 
 While this is a very cool feature(in my opinion), for security purposes i.e. if the intent is for personal bitcoin storage, it is advised that you DO NOT use an image downloaded from the internet due to the ubiquity and readily available nature of online photographs. Instead you should take a unique, candid photograph from your phone's camera.  Every photowallet generated will also generate a unique 24 word backup seed phrase like a normal wallet.  You should write the words down on a piece of paper and secure them properly. The general rule for all wallets that are NOT hardware wallets, is that you should never store more than 1 months salary on it for any extended period of time.
 
-# General Notes
+# General Usage Notes
 1. It is actually safe to share the images onto social media networks.  Social networks such as Facebook, Instagram, Twitter preprocess and compress all uploaded images, thereby permanantly destroying the original data that was computed to generate the wallet, while the original photograph in your phone's memory remains unchanged.
 
 
