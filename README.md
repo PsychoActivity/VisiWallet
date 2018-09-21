@@ -1,5 +1,5 @@
 # Safety Notice
-NOTE: This software is intended for creative use rather than security. USE AT YOUR OWN RISK.  This application is NOT a replacement to existing cold storage and hardware wallet options.  There is no safer alternative than storing your bitcoin in a total offline environment secured with the latest encryption standards.  Treat photographs taken with this app like you would treat your most embarrassing nudes.  Anyone with an exact copy of the photograph and the proper knowledge/equipment - such as this app on another phone - will be able to access the funds on your wallet.
+NOTE: This software is intended for creative use rather than security. USE AT YOUR OWN RISK.  This application is NOT a replacement to existing cold storage and hardware wallet options.  There is no safer alternative than storing your bitcoin in a total offline environment secured with the latest encryption standards.  Treat photographs taken with this app like you would treat your most embarrassing nudes.  Anyone with an exact copy of the photograph and the proper knowledge/equipment - such as this app on another phone - will be able to access the funds in your photowallet.
 
 
 # Slideshot Wallet
@@ -10,9 +10,14 @@ While this is a very cool feature(in my opinion), for security purposes i.e. if 
 # General Notes
 1. It is actually safe to share the images onto social media networks.  Social networks such as Facebook, Instagram, Twitter preprocess and compress all uploaded images, thereby destroying the original data that was computed to generate the wallet.  
 
-2. I would advise against sending a copy of these photos to your email, through SMS or any form of cloud storage.  If you would rather have a backup of this photograph in an online environment, then it would be safer to export the image as raw encrypted binary data which you could then decrypt and restore the original image at a later time(this feature is not available yet, but will be soon).
 
-3. The best way to use this photo as a legitimate backup to secure your bitcoin would be to take a candid photo or selfie from your phone's camera and store it on an encrypted flash drive in a cool, indoor, locked and safe environment.  Remember to delete all other copies.
+2. I would advise against sending a copy of any photowallets to your email, through SMS or any form of cloud storage as images.  If you would rather have a backup of a photowallet in an online environment, then it would be safer to export the image as raw encrypted binary data which you could then decrypt and restore the original image at a later time(this feature is not available yet).
+
+
+3. This app saves all photowallets taken in your phone's internal storage system.  Smartphone internal storage is *generally* considered safe so long as you have proper security measures activated on your phones device such as fingerprint authentication or some sort of lockscreen mechanism.
+
+
+4. The best way to utilize a photowallet as a legitimate backup to secure your bitcoin would be to take a candid photo or selfie from your phone's own camera and store it on an encrypted flash drive in a cool, indoor, locked and safe environment.  Remember to delete all other copies and write down the unique seed phrase as yet another backup.
 
 HAVE FUN, BE SAFE! :)
 
