@@ -6,23 +6,28 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.support.design.widget.CoordinatorLayout;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.github.clans.fab.FloatingActionButton;
+import com.github.clans.fab.FloatingActionMenu;
 import com.google.common.base.Joiner;
 import com.google.common.hash.Hashing;
 
 import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.wallet.DeterministicSeed;
 import org.bitcoinj.wallet.Wallet;
@@ -34,11 +39,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
     private static final int RESULT_LOAD_IMG = 1;
     private static final int REQUEST_TAKE_PHOTO = 1;
+    static final int REQUEST_IMAGE_CAPTURE = 1;
 
 
     private String mCurrentPhotoPath;
@@ -50,6 +57,12 @@ public class MainActivity extends AppCompatActivity {
     private ImageView mPhotoView;
 
     private RecyclerView recyclerView;
+
+    private WalletAdapter walletAdapter;
+
+    private ArrayList<SlideWallet> walletList = new ArrayList<>();
+
+    private FloatingActionMenu fabMenu;
 
 
     NetworkParameters params = TestNet3Params.get();
@@ -64,6 +77,10 @@ public class MainActivity extends AppCompatActivity {
         mGetPhoto = findViewById(R.id.choosePhoto);
         mTakePhoto = findViewById(R.id.takePhoto);
         recyclerView = findViewById(R.id.recyclerView);
+        fabMenu = findViewById(R.id.fabMenu);
+        walletAdapter = new WalletAdapter(walletList);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setAdapter(walletAdapter);
 
         mGetPhoto.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -72,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
                 Intent photoPickerIntent = new Intent(Intent.ACTION_PICK);
                 photoPickerIntent.setType("image/*");
                 startActivityForResult(photoPickerIntent, RESULT_LOAD_IMG);
+                fabMenu.close(true);
             }
         });
 
@@ -79,6 +97,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 dispatchTakePictureIntent();
+                fabMenu.close(true);
+
             }
         });
 
@@ -128,13 +148,43 @@ public class MainActivity extends AppCompatActivity {
         protected void onActivityResult(int reqCode, int resultCode, Intent data) {
             super.onActivityResult(reqCode, resultCode, data);
 
+            if (reqCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
 
-            if (resultCode == RESULT_OK) {
+                Uri uri = fileUri;
+
+                Bitmap img = BitmapFactory.decodeFile(uri.getPath());
+//
+
+                walletList.add(
+                        new SlideWallet(img)
+                );
+                walletAdapter.notifyDataSetChanged();
+
+                // get the base 64 string
+                String imgString = Base64.encodeToString(getBytesFromBitmap(img),
+                        Base64.NO_WRAP);
+
+                String hashed = Hashing.sha512()
+                        .hashString(imgString, StandardCharsets.UTF_8)
+                        .toString();
+
+                Log.i("imgstring", hashed);
+                DeterministicSeed seed = new DeterministicSeed(hashed.substring(0,32).getBytes(), "", 100L);
+                Wallet wallet = Wallet.fromSeed(params, seed);
+                String walletString = Joiner.on(" ").join(seed.getMnemonicCode());
+                Log.i("Wallet",walletString);
+                Log.i("Wallet", wallet.currentReceiveAddress().toString());
+
+
+            } else if (reqCode == 0 && resultCode == RESULT_OK) {
                 try {
                     final Uri imageUri = data.getData();
                     final InputStream imageStream = getContentResolver().openInputStream(imageUri);
                     final Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
-                    mPhotoView.setImageBitmap(selectedImage);
+                    walletList.add(
+                            new SlideWallet(selectedImage)
+                    );
+                    walletAdapter.notifyDataSetChanged();
                     String imgString = Base64.encodeToString(getBytesFromBitmap(selectedImage),
                             Base64.NO_WRAP);
 
@@ -145,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
 
 
                     Log.i("imgstringhash", hashed);
-                    DeterministicSeed seed = new DeterministicSeed(hashed.substring(0,16).getBytes(), "", unixTime);
+                    DeterministicSeed seed = new DeterministicSeed(hashed.substring(0,32).getBytes(), "", unixTime);
                     Wallet wallet = Wallet.fromSeed(params, seed);
 //                blockChain = new BlockChain(params, wallet, blockStore);
 //                peerGroup.addWallet(wallet);
@@ -153,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
                     String seedPhrase = Joiner.on(" ").join(seed.getMnemonicCode());
 //                    textView.setText(wallet.toString());
                     Log.i("wallet", wallet.toString());
-                    Log.i("Wallet", wallet.currentReceiveAddress().toString());
+                    Log.i("SlideWallet", wallet.currentReceiveAddress().toString());
 
 
 
@@ -162,7 +212,7 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(this, "Something went wrong", Toast.LENGTH_LONG).show();
                 }
 
-            }else {
+            } else {
                 Toast.makeText(this, "You haven't picked an Image",Toast.LENGTH_LONG).show();
             }
         }

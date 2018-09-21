@@ -6,6 +6,8 @@
     android:layout_height="wrap_content"
     app:cardCornerRadius="7dp"
     app:cardElevation="4dp"
+    android:layout_marginTop="20dp"
+    android:paddingLeft="5dp"
     style="@style/CardView.Light"
     >
 
@@ -19,6 +21,7 @@
         android:id="@+id/photoView"
         android:layout_width="100dp"
         android:layout_height="200dp"
+        android:layout_marginLeft="5dp"
         />
 
     <TextView
