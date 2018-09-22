@@ -29,7 +29,7 @@ While this is a very cool feature(in my opinion), for security purposes i.e. if 
 
    c. The person's compressed copy of the photo is then given to a trusted person with a notification in the case of death to look for a visually identical photo which would be somewhere in the possession of the sender.
 
-   d. If/when the sender dies, the person(s) with knowledge of the photo could then search for the photo which is assumed to be somewhere in the sender's possessions.  When it is found, all they need to do to regenerate the funds would be to run it through the same algorithm this application uses.
+   d. If/when the sender dies, the person(s) with knowledge of the photo could then search for the original photo that contains the wallet, which is assumed to be somewhere in the sender's possessions.  When it is found, all they need to do to regenerate the funds would be to run it through the same algorithm this application uses.
 
 HAVE FUN, BE SAFE! :)
 
