@@ -21,7 +21,7 @@ While this is a very cool feature(in my opinion), for security purposes i.e. if 
 
 5. There could be a very specific use case for this app that may interest a few.  In the event that someone passes away, the coins they own are essentially "burned", as all knowledge of their private keys usually dies with the person, becoming forever locked away and unusable.  Having a photowallet as a backup could potentially solve the issue of being able to pass down enough *information* about the existence of private keys to notify someone of what they *look* like, without revealing the keys themselves, in the event that a deceased persons' cryptocurrency need be reclaimed by a loved one or heir.
 
-   Essentially, the way it would work is by doing intentional reproduction of the process outlined in General Usage Notes #1, which states why sharing a photo over social media is actually safe because of the preprocessing a photo undergoes when it is added to social media.
+   Essentially, the way it would work is by doing an intentional reproduction of the process outlined in General Usage Notes #1, which states why sharing a photo over social media is actually safe because of the preprocessing a photo undergoes when it is added to social media.
 
    a. The person would take a picture with this app, generating a photowallet.
 
