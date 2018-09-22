@@ -1,5 +1,5 @@
 # Safety Notice
-NOTE: This software is intended for creative and aesthetic uses rather than security. USE AT YOUR OWN RISK.  This application is NOT a replacement to existing cold storage and hardware wallet options.  There is no safer alternative than storing your bitcoin in a total offline environment secured with the latest encryption standards.  Treat photographs taken with this app like you would treat your most embarrassing nudes.  Anyone with the photograph or an exact copy of it, AND the proper knowledge/equipment - such as this app on another phone - will be able to access the funds in your photowallet.
+NOTE: This software is intended for creative and aesthetic uses rather than security. USE AT YOUR OWN RISK.  This application is NOT a replacement to existing cold storage and hardware wallet options.  There is no safer alternative than storing your bitcoin in a total offline environment secured with the latest encryption standards.  Treat photographs taken with this app like you would treat your most embarrassing nudes.  Anyone with the original photograph or an exact copy of it, AND the proper knowledge/equipment - such as this app on another phone - will be able to access the funds in your photowallet.
 
 
 # Slideshot Wallet
