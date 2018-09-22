@@ -19,6 +19,15 @@ While this is a very cool feature(in my opinion), for security purposes i.e. if 
 
 4. The best way to utilize a photowallet as a legitimate backup to secure your bitcoin would be to take a candid photo or selfie from your phone's own camera and store it on an encrypted flash drive in a cool, indoor, locked and safe environment.  Remember to delete all other copies and write down the unique seed phrase as yet another backup.
 
+5. There could be a very specific use case for this app that may interest a few.  In the event that someone passes away, the coins they own are essentially "burned", as all knowledge of their private keys usually dies with the person, becoming forever locked away and unusable.  Having a photowallet as a backup could potentially solve the issue of being able to pass down enough *information* about the existence of private keys to notify someone of what they *look* like, without revealing the keys themselves, in the event that a deceased persons' cryptocurrency need be reclaimed by a loved one or heir.
+
+   Essentially, the way it would work is an intentional reproduction of the process outlined in General Usage Notes #1, which states why sharing a photo over social media is actually safe because of the preprocessing a photo undergoes when it is added to social media.
+
+   a. The person would take a picture with this app, generating a photowallet.
+   b. The person would then reprocess the photo, not losing any visual information but rearranging the binary information of the photo. This can be done with a simple compression algorithm such as JPEG.
+   c. The person's compressed copy of the photo is then given to a trusted person with a notification in the case of death to look for a visually identical photo which would be somewhere in the possession of the sender.
+   d. If/when the sender dies, the person(s) with knowledge of the photo could then search for the photo which is assumed to be somewhere in the sender's possessions.  When it is found, all they need to do to regenerate the funds would be to run it through the same algorithm this application uses.
+
 HAVE FUN, BE SAFE! :)
 
 
