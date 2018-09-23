@@ -1,13 +1,19 @@
 package com.cryptoapp.slideshot;
 
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.v4.content.FileProvider;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
@@ -18,6 +24,7 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,6 +34,8 @@ import com.google.common.base.Joiner;
 import com.google.common.hash.Hashing;
 
 import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.crypto.MnemonicCode;
+import org.bitcoinj.crypto.MnemonicException;
 import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.wallet.DeterministicSeed;
@@ -64,6 +73,12 @@ public class MainActivity extends AppCompatActivity {
 
     private FloatingActionMenu fabMenu;
 
+    private ProgressBar progressBar;
+
+    private Context mContext;
+
+    public static final String BIP39_ENGLISH_SHA256 = "ad90bf3beb7b0eb7e5acd74727dc0da96e0a280a258354e7293fb7e211ac03db";
+
 
     NetworkParameters params = TestNet3Params.get();
 
@@ -75,6 +90,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mGetPhoto = findViewById(R.id.choosePhoto);
+        progressBar = findViewById(R.id.indeterminateBar);
         mTakePhoto = findViewById(R.id.takePhoto);
         recyclerView = findViewById(R.id.recyclerView);
         fabMenu = findViewById(R.id.fabMenu);
@@ -160,20 +176,9 @@ public class MainActivity extends AppCompatActivity {
                 );
                 walletAdapter.notifyDataSetChanged();
 
-                // get the base 64 string
-                String imgString = Base64.encodeToString(getBytesFromBitmap(img),
-                        Base64.NO_WRAP);
+                new ConvertBitmapToWallet().execute(img);
 
-                String hashed = Hashing.sha512()
-                        .hashString(imgString, StandardCharsets.UTF_8)
-                        .toString();
 
-                Log.i("imgstring", hashed);
-                DeterministicSeed seed = new DeterministicSeed(hashed.substring(0,32).getBytes(), "", 100L);
-                Wallet wallet = Wallet.fromSeed(params, seed);
-                String walletString = Joiner.on(" ").join(seed.getMnemonicCode());
-                Log.i("Wallet",walletString);
-                Log.i("Wallet", wallet.currentReceiveAddress().toString());
 
 
             } else if (reqCode == 0 && resultCode == RESULT_OK) {
@@ -185,26 +190,8 @@ public class MainActivity extends AppCompatActivity {
                             new SlideWallet(selectedImage)
                     );
                     walletAdapter.notifyDataSetChanged();
-                    String imgString = Base64.encodeToString(getBytesFromBitmap(selectedImage),
-                            Base64.NO_WRAP);
 
-
-                    String hashed = Hashing.sha512()
-                            .hashString(imgString, StandardCharsets.UTF_8)
-                            .toString();
-
-
-                    Log.i("imgstringhash", hashed);
-                    DeterministicSeed seed = new DeterministicSeed(hashed.substring(0,32).getBytes(), "", unixTime);
-                    Wallet wallet = Wallet.fromSeed(params, seed);
-//                blockChain = new BlockChain(params, wallet, blockStore);
-//                peerGroup.addWallet(wallet);
-//                peerGroup.startAsync();
-                    String seedPhrase = Joiner.on(" ").join(seed.getMnemonicCode());
-//                    textView.setText(wallet.toString());
-                    Log.i("wallet", wallet.toString());
-                    Log.i("SlideWallet", wallet.currentReceiveAddress().toString());
-
+                    new ConvertBitmapToWallet().execute(selectedImage);
 
 
                 } catch (FileNotFoundException e) {
@@ -245,6 +232,99 @@ public class MainActivity extends AppCompatActivity {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
             return stream.toByteArray();
         }
+
+
+
+    // The types specified here are the input data type, the progress type, and the result type
+    private class ConvertBitmapToWallet extends AsyncTask<Bitmap, String, String> {
+        @Override
+        protected String doInBackground(Bitmap... bitmaps) {
+            Bitmap bmp = bitmaps[0];
+            String imgString = Base64.encodeToString(getBytesFromBitmap(bmp),
+                    Base64.NO_WRAP);
+
+
+            String hashed = Hashing.sha512()
+                    .hashString(imgString, StandardCharsets.UTF_8)
+                    .toString();
+
+            //check hash in console
+            Log.i("imgstringhash", hashed);
+            try {
+                InputStream wis = MainActivity.this.getResources().getAssets().open("BIP39/en.txt");
+                MnemonicCode mc = new MnemonicCode(wis, BIP39_ENGLISH_SHA256);
+                byte[] seed = hashed.substring(0, 32).getBytes();
+                SlideWallet sw = new SlideWallet(params, mc, seed);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (MnemonicException.MnemonicLengthException e) {
+                e.printStackTrace();
+            }
+
+
+//            DeterministicSeed seed = new DeterministicSeed(hashed.substring(0,32).getBytes(), "", unixTime);
+//            Wallet wallet = Wallet.fromSeed(params, seed);
+//                blockChain = new BlockChain(params, wallet, blockStore);
+//                peerGroup.addWallet(wallet);
+//                peerGroup.startAsync();
+//            String seedPhrase = Joiner.on(" ").join(seed.getMnemonicCode());
+////                    textView.setText(wallet.toString());
+//            Log.i("wallet", wallet.toString());
+//            Log.i("SlideWallet", wallet.currentReceiveAddress().toString());
+
+            return null;
+        }
+
+        protected void onPreExecute() {
+            // Runs on the UI thread before doInBackground
+            // Good for toggling visibility of a progress indicator
+            progressBar.setVisibility(ProgressBar.VISIBLE);
+        }
+
+
+        protected void onProgressUpdate(String... values) {
+            // Executes whenever publishProgress is called from doInBackground
+            // Used to update the progress indicator
+//            progressBar.setProgress(values[0]);
+
+        }
+
+        protected void onPostExecute(String result) {
+            // This method is executed in the UIThread
+            // with access to the result of the long running task
+//            imageView.setImageBitmap(result);
+//            // Hide the progress bar
+            progressBar.setVisibility(ProgressBar.INVISIBLE);
+            final AlertDialog.Builder dialog =
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("DONE!");
+            final AlertDialog alert = dialog.create();
+            alert.show();
+
+// Hide after some seconds
+            final Handler handler  = new Handler();
+            final Runnable runnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (alert.isShowing()) {
+                        alert.dismiss();
+                    }
+                }
+            };
+
+            alert.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                @Override
+                public void onDismiss(DialogInterface dialog) {
+                    handler.removeCallbacks(runnable);
+                }
+            });
+
+            handler.postDelayed(runnable, 1000);
+
+            Log.i("onPostExecute called...", "All done!");
+        }
+    }
 
 
 
