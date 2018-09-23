@@ -2,7 +2,7 @@
 NOTE: This software is intended for creative and aesthetic uses rather than security. USE AT YOUR OWN RISK.  This application is NOT a replacement to existing cold storage and hardware wallet options.  There is no safer alternative than storing your bitcoin in a total offline environment secured with the latest encryption standards.  Treat photographs taken with this app like you would treat your most embarrassing nudes.  Anyone with the original photograph or an exact copy of it, AND the proper knowledge/equipment - such as this app on another phone - will be able to access the funds in your photowallet.
 
 
-# Slideshot Wallet
+# Subspace Wallet
 Create a discreet bitcoin wallet out of a camera photograph or image from the internet.
 
 While this is a very cool feature(in my opinion), for security purposes i.e. if the intent is for personal bitcoin storage, it is advised that you DO NOT use an image downloaded from the internet due to the ubiquity and readily available nature of online photographs. Instead you should take a unique, candid photograph from your phone's camera.  Every photowallet generated will also generate a unique 24 word backup seed phrase like a normal wallet.  You should write the words down on a piece of paper and secure them properly. The general rule for all wallets that are NOT hardware wallets, is that you should never store more than 1 months salary on it for any extended period of time.
@@ -25,7 +25,7 @@ While this is a very cool feature(in my opinion), for security purposes i.e. if 
 
    1. The person would take a picture with this app, generating a photowallet.
 
-   2. The person would then copy and reprocess the copied photo, not losing any visual information about the photo but rearranging the binary information of the photo. This can be done with a simple compression algorithm such as JPEG.
+   2. The person would then copy and reprocess the copied photo, not losing any visual information about the photo but rearranging the binary information of the photo. This can be done with any simple lossy compression algorithm such as JPEG.  In this way, the compression algorithm acts as a one way function, making it infeasible compute the original dataset(image) that was used to generate the result.
 
    3. The person's compressed copy of the photo is then given to a trusted person with a notification in the case of death to look for a visually identical photo which would be somewhere in the possession of the sender.
 

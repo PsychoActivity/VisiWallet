@@ -54,7 +54,8 @@ import java.util.Date;
 public class MainActivity extends AppCompatActivity {
     private static final int RESULT_LOAD_IMG = 1;
     private static final int REQUEST_TAKE_PHOTO = 1;
-    static final int REQUEST_IMAGE_CAPTURE = 1;
+    private static final int REQUEST_IMAGE_CAPTURE = 1;
+    private static final int REQUEST_CHOOSE_PHOTO = 2;
 
 
     private String mCurrentPhotoPath;
@@ -104,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
                 // get photo from gallery
                 Intent photoPickerIntent = new Intent(Intent.ACTION_PICK);
                 photoPickerIntent.setType("image/*");
-                startActivityForResult(photoPickerIntent, RESULT_LOAD_IMG);
+                startActivityForResult(photoPickerIntent, REQUEST_CHOOSE_PHOTO);
                 fabMenu.close(true);
             }
         });
@@ -164,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
         protected void onActivityResult(int reqCode, int resultCode, Intent data) {
             super.onActivityResult(reqCode, resultCode, data);
 
-            if (reqCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            if (reqCode == REQUEST_IMAGE_CAPTURE) {
 
                 Uri uri = fileUri;
 
@@ -179,28 +180,31 @@ public class MainActivity extends AppCompatActivity {
                 new ConvertBitmapToWallet().execute(img);
 
 
+            }
+
+            if (reqCode == REQUEST_CHOOSE_PHOTO) {
+                if(resultCode == RESULT_OK) {
+                    try {
+                        final Uri imageUri = data.getData();
+                        final InputStream imageStream = getContentResolver().openInputStream(imageUri);
+                        final Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
+                        walletList.add(
+                                new SlideWallet(selectedImage)
+                        );
+                        walletAdapter.notifyDataSetChanged();
+
+                        new ConvertBitmapToWallet().execute(selectedImage);
 
 
-            } else if (reqCode == 0 && resultCode == RESULT_OK) {
-                try {
-                    final Uri imageUri = data.getData();
-                    final InputStream imageStream = getContentResolver().openInputStream(imageUri);
-                    final Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
-                    walletList.add(
-                            new SlideWallet(selectedImage)
-                    );
-                    walletAdapter.notifyDataSetChanged();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                        Toast.makeText(this, "Something went wrong", Toast.LENGTH_LONG).show();
+                    }
 
-                    new ConvertBitmapToWallet().execute(selectedImage);
-
-
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                    Toast.makeText(this, "Something went wrong", Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(this, "No img selected", Toast.LENGTH_LONG).show();
                 }
 
-            } else {
-                Toast.makeText(this, "You haven't picked an Image",Toast.LENGTH_LONG).show();
             }
         }
 

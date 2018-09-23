@@ -47,10 +47,13 @@ public class SlideWallet {
         byte[] hd_seed = MnemonicCode.toSeed(mWordList, "");
         Log.i("HD_SEED", hd_seed.toString());
         mKey = HDKeyDerivation.createMasterPrivateKey(hd_seed);
-        Log.i("MasterPrivateKey",mKey.toString());
-//        DeterministicKey t1 = HDKeyDerivation.deriveChildKey(mKey, purpose| ChildNumber.HARDENED_BIT);
-//        int coin = SamouraiWallet.getInstance().isTestNet() ? (1 | ChildNumber.HARDENED_BIT) : ChildNumber.HARDENED_BIT;
-//        mRoot = HDKeyDerivation.deriveChildKey(t1, coin);
+        Log.i("MasterPrivateKey", mKey.toString());
+        DeterministicKey t1 = HDKeyDerivation.deriveChildKey(mKey, ChildNumber.HARDENED_BIT);
+        Log.i("DeterministicKey", t1.toString());
+        int coin = (1 | ChildNumber.HARDENED_BIT);
+        Log.i("Coin", String.valueOf(coin));
+        mRoot = HDKeyDerivation.deriveChildKey(t1, coin);
+        Log.i("root", mRoot.toString());
     }
 
 
