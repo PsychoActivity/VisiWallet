@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:layout_margin="5dp"
     xmlns:fab="http://schemas.android.com/apk/res-auto"
-    tools:context="com.cryptoapp.slideshot.MainActivity">
+    tools:context="com.cryptoapp.subspace.MainActivity">
 
     <!--<android.support.design.widget.AppBarLayout-->
         <!--android:layout_width="match_parent"-->
