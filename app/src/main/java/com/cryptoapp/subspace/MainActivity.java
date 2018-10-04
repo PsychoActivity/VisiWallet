@@ -23,6 +23,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.github.clans.fab.FloatingActionButton;
@@ -35,24 +36,24 @@ import org.bitcoinj.core.CheckpointManager;
 import org.bitcoinj.core.FilteredBlock;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.Peer;
+import org.bitcoinj.core.PeerAddress;
 import org.bitcoinj.core.PeerGroup;
 import org.bitcoinj.core.listeners.DownloadProgressTracker;
 import org.bitcoinj.crypto.MnemonicCode;
-import org.bitcoinj.crypto.MnemonicException;
 import org.bitcoinj.kits.WalletAppKit;
-import org.bitcoinj.net.discovery.DnsDiscovery;
 import org.bitcoinj.params.TestNet3Params;
-import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.store.SPVBlockStore;
 import org.bitcoinj.wallet.DeterministicSeed;
 import org.bitcoinj.wallet.Wallet;
+import org.w3c.dom.Text;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
@@ -65,46 +66,34 @@ public class MainActivity extends AppCompatActivity {
     private static final String SETUP_SETTINGS = "Setup Settings";
     private static final String FIRST_TIME_SETUP = "FirstTimeSetup";
     private boolean firstTimeSetup;
-    Wallet wallet;
+    double balance;
+    int currentListPosition;
+
     //bitcoinj wallet objects
-    private BlockStore blockStore;
-    private File blockChainFile;
-    private BlockChain blockChain;
+    private Wallet wallet;
+    private SPVBlockStore chainStore;
+    private BlockChain chain;
     private PeerGroup peerGroup;
 
-    private SPVBlockStore chainStore;
+    //walletappkit
 
-
+    private WalletAppKit kit;
+    private File chainFile;
     private String mCurrentPhotoPath;
-
-
     private Uri fileUri;
-
     private Long earliestKeyCreationTime = 1537142400L;
-
-
     private ImageView mPhotoView;
-
     private RecyclerView recyclerView;
-
+    DeterministicSeed seed;
+    private Bitmap image;
     CheckpointManager checkpointManager;
-
-
     private WalletAdapter walletAdapter;
-
-    private ArrayList<SSWallet> SSWalletList = new ArrayList<>();
-
+    private ArrayList<SSWallet> ssWalletList = new ArrayList<>();
     private FloatingActionMenu fabMenu;
-
     private ProgressBar progressBar;
-
     private Context mContext;
-
     public static final String BIP39_ENGLISH_SHA256 = "ad90bf3beb7b0eb7e5acd74727dc0da96e0a280a258354e7293fb7e211ac03db";
-
-
     NetworkParameters params = TestNet3Params.get();
-
     long unixTime = System.currentTimeMillis() / 1000L;
     FloatingActionButton mGetPhoto, mTakePhoto;
 
@@ -115,6 +104,21 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        chainFile = new File(getFilesDir(), "subspace.spvchain");
+
+        try {
+            chainStore = new SPVBlockStore(params, chainFile);
+            chain = new BlockChain(params, chainStore);
+            peerGroup = new PeerGroup(params, chain);
+            CheckpointManager.checkpoint(params, getAssets()
+                            .open("checkpoints-testnet.txt"),
+                    chainStore, earliestKeyCreationTime);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (BlockStoreException e) {
+            e.printStackTrace();
+        }
+
         Log.i("File is present", String.valueOf(isFilePresent(MainActivity.this.getResources().getString(R.string.app_name))));
         SharedPreferences sharedPreferences = getSharedPreferences(SETUP_SETTINGS, MODE_PRIVATE);
         mGetPhoto = findViewById(R.id.choosePhoto);
@@ -122,7 +126,7 @@ public class MainActivity extends AppCompatActivity {
         mTakePhoto = findViewById(R.id.takePhoto);
         recyclerView = findViewById(R.id.recyclerView);
         fabMenu = findViewById(R.id.fabMenu);
-        walletAdapter = new WalletAdapter(SSWalletList);
+        walletAdapter = new WalletAdapter(ssWalletList);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(walletAdapter);
 
@@ -156,8 +160,6 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Toast.makeText(this, "Blockchain SPV already written!", Toast.LENGTH_SHORT).show();
         }
-
-
 
 
     }
@@ -195,8 +197,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
-
     /*
     * Returns photo from gallery
     * Converts bitmap image into byte array with GetBytesFromBitmap
@@ -212,21 +212,12 @@ public class MainActivity extends AppCompatActivity {
             super.onActivityResult(reqCode, resultCode, data);
 
             if (reqCode == REQUEST_IMAGE_CAPTURE) {
-
                 Uri uri = fileUri;
-
                 Bitmap img = BitmapFactory.decodeFile(uri.getPath());
-//
 
-                SSWalletList.add(
-                        new SSWallet(img)
-                );
-                walletAdapter.notifyDataSetChanged();
+               addWallet(img, 0);
 
-                new ConvertBitmapToWallet().execute(img);
-
-
-
+                new ConvertBitmapToNewWallet().execute(img);
             }
 
             if (reqCode == REQUEST_CHOOSE_PHOTO) {
@@ -235,12 +226,45 @@ public class MainActivity extends AppCompatActivity {
                         final Uri imageUri = data.getData();
                         final InputStream imageStream = getContentResolver().openInputStream(imageUri);
                         final Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
-                        SSWalletList.add(
-                                new SSWallet(selectedImage)
+                        balance = 2;
+                        image = selectedImage;
+
+                        ssWalletList.add(
+                                new SSWallet(selectedImage, balance)
                         );
                         walletAdapter.notifyDataSetChanged();
+                        currentListPosition = ssWalletList.size() - 1;
 
-                        new ConvertBitmapToWallet().execute(selectedImage);
+                        String imgString = Base64.encodeToString(getBytesFromBitmap(selectedImage),
+                                Base64.NO_WRAP);
+
+
+                        String hashed = Hashing.sha512()
+                                .hashBytes(getBytesFromBitmap(selectedImage))
+                                .toString();
+
+                        String hashed2 = Hashing.sha512()
+                                .hashString(imgString, StandardCharsets.UTF_8)
+                                .toString();
+
+                        //check hash in console
+                        Log.i("imgstringhash", hashed);
+                        try {
+                            byte[] seedBytes = hashed2.substring(0, 16).getBytes();
+                            seed = new DeterministicSeed(seedBytes, "", earliestKeyCreationTime);
+                            kit = new WalletAppKit(params, getFilesDir(), "subspace1");
+                            kit.restoreWalletFromSeed(seed).setCheckpoints(getAssets()
+                                    .open("checkpoints-testnet.txt"))
+                                    .setDownloadListener(bListener)
+                                    .setBlockingStartup(false)
+                                    .startAsync();
+
+
+                        } catch (IOException e) {
+                            e.printStackTrace();
+
+
+                        }
 
 
                     } catch (FileNotFoundException e) {
@@ -273,23 +297,109 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    private void addWallet(Bitmap bitmap, double balance) {
+
+            System.out.println("size" + currentListPosition);
+            ssWalletList.remove(currentListPosition);
+        ssWalletList.add(
+                new SSWallet(bitmap, balance)
+        );
+
+        walletAdapter.notifyDataSetChanged();
+    }
 
 
 
 
-
-        // convert from bitmap to byte array
-        public byte[] getBytesFromBitmap(Bitmap bitmap) {
-            ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
-            return stream.toByteArray();
+    DownloadProgressTracker bListener = new DownloadProgressTracker() {
+        @Override
+        public void doneDownload() {
+              Log.i("wallet info", kit.wallet().getBalance().toFriendlyString());
+              setBalance();
         }
+
+
+
+        @Override
+        protected void progress(double pct, int blocksSoFar, Date date) {
+            super.progress(pct, blocksSoFar, date);
+            System.out.println("progress" + blocksSoFar);
+            System.out.println("Percent done" + pct);
+
+        }
+
+        @Override
+        public void onChainDownloadStarted(Peer peer, int blocksLeft) {
+            super.onChainDownloadStarted(peer, blocksLeft);
+            System.out.println("onChainDownloadStarted " + blocksLeft);
+        }
+
+        @Override
+        public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
+            super.onBlocksDownloaded(peer, block, filteredBlock, blocksLeft);
+            System.out.println("onBlocksDownloaded " + blocksLeft);
+            if(blocksLeft == 15) {
+                try {
+                kit.restoreWalletFromSeed(seed).setCheckpoints(getAssets()
+                            .open("checkpoints-testnet.txt"))
+                            .setDownloadListener(bListener)
+                            .setBlockingStartup(false)
+                            .startAsync()
+                            .awaitRunning();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            }
+
+            if(blocksLeft == 0) {
+                setBalance();
+            }
+        }
+
+        @Override
+        protected void startDownload(int blocks) {
+            super.startDownload(blocks);
+            System.out.println("startDownload");
+        }
+    };
+
+
+    public void setBalance() {
+
+        runOnUiThread(new Runnable() {
+
+            @Override
+            public void run() {
+                TextView setbalance = recyclerView.findViewHolderForAdapterPosition(currentListPosition).itemView.findViewById(R.id.accountBalanceView);
+                // Stuff that updates the UI
+                setbalance.setText(kit.wallet().getBalance().toFriendlyString());
+                balance = Double.parseDouble(kit.wallet().getBalance().toString());
+                ssWalletList.remove(currentListPosition);
+                ssWalletList.add(new SSWallet(image, balance));
+            }
+        });
+
+        Log.i("wallet info", kit.wallet().getBalance().toFriendlyString());
+    }
+
+
+
+
+
+
+    // convert from bitmap to byte array
+    public byte[] getBytesFromBitmap(Bitmap bitmap) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
+        return stream.toByteArray();
+    }
 
 
 
 
     // The types specified here are the input data type, the progress type, and the result type
-    private class ConvertBitmapToWallet extends AsyncTask<Bitmap, String, String> {
+    private class ConvertBitmapToRestoreWallet extends AsyncTask<Bitmap, String, String> {
         @Override
         protected String doInBackground(Bitmap... bitmaps) {
             Bitmap bmp = bitmaps[0];
@@ -310,44 +420,23 @@ public class MainActivity extends AppCompatActivity {
             //check hash in console
             Log.i("imgstringhash", hashed);
             try {
-                InputStream wis = MainActivity.this.getResources().getAssets().open("BIP39/en.txt");
-                MnemonicCode mc = new MnemonicCode(wis, BIP39_ENGLISH_SHA256);
                 byte[] seedBytes = hashed2.substring(0, 16).getBytes();
                 DeterministicSeed seed = new DeterministicSeed(seedBytes, "", earliestKeyCreationTime);
                 wallet = Wallet.fromSeed(params, seed);
                 Log.i("wallet", wallet.toString());
                 Log.i("wallet", wallet.currentReceiveAddress().toString());
-
-                File chainFile = new File(getCacheDir(), "subspace.spvchain");
-                if (chainFile.exists()) {
-//                    chainFile.delete();
-                    System.out.println("true");
-
-                    chainStore = new SPVBlockStore(params, chainFile);
-                    BlockChain chain = new BlockChain(params, chainStore);
-                    PeerGroup peerGroup = new PeerGroup(params, chain);
-                    peerGroup.addPeerDiscovery(new DnsDiscovery(params));
-                    CheckpointManager.checkpoint(params, getAssets()
-                                    .open("checkpoints-testnet.txt"),
-                            chainStore, earliestKeyCreationTime);
-
-                    // Now we need to hook the wallet up to the blockchain and the peers. This registers event listeners that notify our wallet about new transactions.
-                    chain.addWallet(wallet);
-                    peerGroup.addWallet(wallet);
-
-                    // Now we re-download the blockchain. This replays the chain into the wallet. Once this is completed our wallet should know of all its transactions and print the correct balance.
-                    peerGroup.startAsync();
-                    peerGroup.startBlockChainDownload(bListener);
-                } else {
-                    System.out.println("false");
-                }
+                kit = new WalletAppKit(params, getFilesDir(), "subspace1");
+                kit.restoreWalletFromSeed(seed).setCheckpoints(getAssets()
+                        .open("checkpoints-testnet.txt"))
+                        .setDownloadListener(bListener)
+                        .setBlockingStartup(false)
+                        .startAsync();
 
 
             } catch (IOException e) {
                 e.printStackTrace();
 
-            } catch (BlockStoreException e) {
-                e.printStackTrace();
+
             } finally {
 
             }
@@ -412,45 +501,98 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    DownloadProgressTracker bListener = new DownloadProgressTracker() {
+    private class ConvertBitmapToNewWallet extends AsyncTask<Bitmap, String, String> {
         @Override
-        public void doneDownload() {
-            System.out.println("doneDownload");
-            Log.w("CLAPCLAP", "doneDownload =");
-            Log.i("Wallet", wallet.toString());
+        protected String doInBackground(Bitmap... bitmaps) {
+            Bitmap bmp = bitmaps[0];
+            String imgString = Base64.encodeToString(getBytesFromBitmap(bmp),
+                    Base64.NO_WRAP);
 
+
+            String hashed = Hashing.sha512()
+                    .hashBytes(getBytesFromBitmap(bmp))
+                    .toString();
+
+            String hashed2 = Hashing.sha512()
+                    .hashString(imgString, StandardCharsets.UTF_8)
+                    .toString();
+
+
+
+            //check hash in console
+            Log.i("imgstringhash", hashed);
+            try {
+                byte[] seedBytes = hashed2.substring(0, 16).getBytes();
+                DeterministicSeed seed = new DeterministicSeed(seedBytes, "", earliestKeyCreationTime);
+                WalletAppKit kit = new WalletAppKit(params, getFilesDir(), "subspace1");
+                Log.i("Wallet", wallet.toString());
+
+
+
+            }finally {
+
+            }
+
+
+            return null;
+        }
+
+        protected void onPreExecute() {
+            // Runs on the UI thread before doInBackground
+            // Good for toggling visibility of a progress indicator
+            progressBar.setVisibility(ProgressBar.VISIBLE);
+        }
+
+
+        protected void onProgressUpdate(String... values) {
+            // Executes whenever publishProgress is called from doInBackground
+            // Used to update the progress indicator
+//            progressBar.setProgress(values[0]);
 
         }
 
-        @Override
-        protected void progress(double pct, int blocksSoFar, Date date) {
-            super.progress(pct, blocksSoFar, date);
-            System.out.println("progress" + blocksSoFar);
-            System.out.println("Percent done" + pct);
 
+        protected void onPostExecute(String result) {
+            // This method is executed in the UIThread
+            // with access to the result of the long running task
+//            imageView.setImageBitmap(result);
+//            // Hide the progress bar
+            progressBar.setVisibility(ProgressBar.INVISIBLE);
+            final AlertDialog.Builder dialog =
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("DONE!");
+            final AlertDialog alert = dialog.create();
+            alert.show();
+
+
+
+// Hide after some seconds
+            final Handler handler  = new Handler();
+            final Runnable runnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (alert.isShowing()) {
+                        alert.dismiss();
+
+                    }
+                }
+            };
+
+            alert.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                @Override
+                public void onDismiss(DialogInterface dialog) {
+                    handler.removeCallbacks(runnable);
+                }
+            });
+
+            handler.postDelayed(runnable, 1000);
+
+            Log.i("onPostExecute called...", "All done!");
         }
 
-        @Override
-        public void onChainDownloadStarted(Peer peer, int blocksLeft) {
-            super.onChainDownloadStarted(peer, blocksLeft);
-            System.out.println("onChainDownloadStarted " + blocksLeft);
 
-        }
+    }
 
-        @Override
-        public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
-            super.onBlocksDownloaded(peer, block, filteredBlock, blocksLeft);
-            System.out.println("onBlocksDownloaded " + blocksLeft);
-
-        }
-
-        @Override
-        protected void startDownload(int blocks) {
-            super.startDownload(blocks);
-            System.out.println("startDownload");
-
-        }
-    };
 
 
 

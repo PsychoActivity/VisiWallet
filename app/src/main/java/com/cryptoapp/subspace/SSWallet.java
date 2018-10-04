@@ -21,7 +21,8 @@ import java.util.List;
 public class SSWallet {
 
     private Bitmap photo;
-    private int balance;
+    private double balance;
+    private String balanceString;
     private byte[] photoInBytes;
     private byte[] mSeed = null;
     private NetworkParameters mParams = null;
@@ -30,8 +31,14 @@ public class SSWallet {
     protected DeterministicKey mRoot = null;
 
 
-    public SSWallet(Bitmap photo) {
+    public SSWallet(Bitmap photo, String s) {
         this.photo = photo;
+        this.balanceString = s;
+    }
+
+    public SSWallet(Bitmap photo, double balance) {
+        this.photo = photo;
+        this.balance = balance;
     }
 
     public SSWallet(NetworkParameters params, MnemonicCode mc, byte[] seed) throws MnemonicException.MnemonicLengthException {
@@ -70,11 +77,15 @@ public class SSWallet {
         this.photoInBytes = photoInBytes;
     }
 
-    public int getBalance() {
+    public double getBalance() {
         return balance;
     }
 
-    public void setBalance(int balance) {
+    public String getBalanceString() {
+        return balanceString;
+    }
+
+    public void setBalance(double balance) {
         this.balance = balance;
     }
 }

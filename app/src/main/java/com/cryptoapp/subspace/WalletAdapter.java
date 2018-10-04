@@ -20,8 +20,10 @@ public class WalletAdapter extends RecyclerView.Adapter<WalletAdapter.ViewHolder
 
     private List<SSWallet> mSSWalletList = new ArrayList<SSWallet>();
 
+
     public WalletAdapter(List<SSWallet> SSWalletList) {
         this.mSSWalletList = SSWalletList;
+
     }
 
     @NonNull
@@ -39,12 +41,12 @@ public class WalletAdapter extends RecyclerView.Adapter<WalletAdapter.ViewHolder
 
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
-            SSWallet SSWallet = mSSWalletList.get(position);
+            SSWallet ssWallet = mSSWalletList.get(position);
 
             ImageView photo = holder.imageWalletView;
-            photo.setImageBitmap(SSWallet.getPhoto());
+            photo.setImageBitmap(ssWallet.getPhoto());
             TextView balanceView = holder.accountBalanceView;
-            balanceView.setText("0.00 BTC");
+            balanceView.setText(ssWallet.getBalance() + " BTC");
 
     }
 
@@ -71,6 +73,8 @@ public class WalletAdapter extends RecyclerView.Adapter<WalletAdapter.ViewHolder
         }
 
     }
+
+
 
 
 }
