@@ -28,6 +28,7 @@ import android.widget.Toast;
 
 import com.github.clans.fab.FloatingActionButton;
 import com.github.clans.fab.FloatingActionMenu;
+import com.google.common.base.Stopwatch;
 import com.google.common.hash.Hashing;
 
 import org.bitcoinj.core.Block;
@@ -57,6 +58,7 @@ import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
     private static final int RESULT_LOAD_IMG = 1;
@@ -96,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
     NetworkParameters params = TestNet3Params.get();
     long unixTime = System.currentTimeMillis() / 1000L;
     FloatingActionButton mGetPhoto, mTakePhoto;
+    Stopwatch sw;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -338,7 +341,9 @@ public class MainActivity extends AppCompatActivity {
         public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
             super.onBlocksDownloaded(peer, block, filteredBlock, blocksLeft);
             System.out.println("onBlocksDownloaded " + blocksLeft);
-            if(blocksLeft == 15) {
+            sw = Stopwatch.createStarted();
+
+            if(sw.elapsed(TimeUnit.SECONDS) >= 10) {
                 try {
                 kit.restoreWalletFromSeed(seed).setCheckpoints(getAssets()
                             .open("checkpoints-testnet.txt"))
