@@ -1,327 +1,394 @@
 package com.cryptoapp.subspace;
 
-import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.AsyncTask;
-import android.os.Environment;
-import android.os.Handler;
-import android.provider.MediaStore;
-import android.support.annotation.Nullable;
-import android.support.v4.content.FileProvider;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.support.v7.widget.LinearLayoutManager;
+import android.support.annotation.Nullable;
+import android.support.design.widget.FloatingActionButton;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Base64;
-import android.util.Log;
 import android.view.View;
-import android.widget.ImageView;
-import android.widget.ProgressBar;
-import android.widget.TextView;
-import android.widget.Toast;
 
-import com.github.clans.fab.FloatingActionButton;
-import com.github.clans.fab.FloatingActionMenu;
-import com.google.common.base.Stopwatch;
+import com.google.common.base.Joiner;
 import com.google.common.hash.Hashing;
 
 import org.bitcoinj.core.Block;
-import org.bitcoinj.core.BlockChain;
-import org.bitcoinj.core.CheckpointManager;
+import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.FilteredBlock;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.Peer;
-import org.bitcoinj.core.PeerAddress;
-import org.bitcoinj.core.PeerGroup;
+import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.listeners.DownloadProgressTracker;
-import org.bitcoinj.crypto.MnemonicCode;
 import org.bitcoinj.kits.WalletAppKit;
-import org.bitcoinj.params.TestNet3Params;
-import org.bitcoinj.store.BlockStoreException;
-import org.bitcoinj.store.SPVBlockStore;
+import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.wallet.DeterministicSeed;
+import org.bitcoinj.wallet.UnreadableWalletException;
 import org.bitcoinj.wallet.Wallet;
-import org.w3c.dom.Text;
+import org.bitcoinj.wallet.listeners.WalletCoinsReceivedEventListener;
+import org.bitcoinj.wallet.listeners.WalletCoinsSentEventListener;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-    private static final int RESULT_LOAD_IMG = 1;
-    private static final int REQUEST_TAKE_PHOTO = 1;
-    private static final int REQUEST_IMAGE_CAPTURE = 1;
-    private static final int REQUEST_CHOOSE_PHOTO = 2;
-    private static final String SETUP_SETTINGS = "Setup Settings";
-    private static final String FIRST_TIME_SETUP = "FirstTimeSetup";
-    private boolean firstTimeSetup;
-    double balance;
-    int currentListPosition;
 
-    //bitcoinj wallet objects
-    private Wallet wallet;
-    private SPVBlockStore chainStore;
-    private BlockChain chain;
-    private PeerGroup peerGroup;
-
-    //walletappkit
-
-    private WalletAppKit kit;
-    private File chainFile;
-    private String mCurrentPhotoPath;
-    private Uri fileUri;
-    private Long earliestKeyCreationTime = 1537142400L;
-    private ImageView mPhotoView;
-    private RecyclerView recyclerView;
+    NetworkParameters params = MainNetParams.get();
+    WalletAppKit kit;
+    private String state;
+    private int walletCounter;
     DeterministicSeed seed;
-    private Bitmap image;
-    CheckpointManager checkpointManager;
-    private WalletAdapter walletAdapter;
-    private ArrayList<SSWallet> ssWalletList = new ArrayList<>();
-    private FloatingActionMenu fabMenu;
-    private ProgressBar progressBar;
-    private Context mContext;
-    public static final String BIP39_ENGLISH_SHA256 = "ad90bf3beb7b0eb7e5acd74727dc0da96e0a280a258354e7293fb7e211ac03db";
-    NetworkParameters params = TestNet3Params.get();
-    long unixTime = System.currentTimeMillis() / 1000L;
-    FloatingActionButton mGetPhoto, mTakePhoto;
-    Stopwatch sw;
+    private List<Wallet> pWalletList = new ArrayList<>();
+    private List<File> pFiles = new ArrayList<>();
+    MyPreferences myPreferences;
+    private static final int WALLET_FILE_DEFAULT_VALUE = 0;
+    FloatingActionButton fab;
+    private static final int REQUEST_CHOOSE_PHOTO = 2;
+    private static final Long earliestKeyCreationTime = 1538352000L;
+    private File photoDirectory;
+    private File walletDirectory;
+    private HashMap<File, File> pWalletMap = new HashMap<>();
+    File photoFile;
+    private List<PhotographicWallet> photographicWalletList = new ArrayList<>();
+    private PhotographicWallet photographicWallet;
+    private RecyclerView recyclerView;
+    private CustomAdapter adapter;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
-        //TODO: STOP OS FROM BACKING UP PHOTOS AUTOMATICALLY
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        setup();
 
-        chainFile = new File(getFilesDir(), "subspace.spvchain");
+    }
 
-        try {
-            chainStore = new SPVBlockStore(params, chainFile);
-            chain = new BlockChain(params, chainStore);
-            peerGroup = new PeerGroup(params, chain);
-            CheckpointManager.checkpoint(params, getAssets()
-                            .open("checkpoints-testnet.txt"),
-                    chainStore, earliestKeyCreationTime);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (BlockStoreException e) {
-            e.printStackTrace();
-        }
-
-        Log.i("File is present", String.valueOf(isFilePresent(MainActivity.this.getResources().getString(R.string.app_name))));
-        SharedPreferences sharedPreferences = getSharedPreferences(SETUP_SETTINGS, MODE_PRIVATE);
-        mGetPhoto = findViewById(R.id.choosePhoto);
-        progressBar = findViewById(R.id.indeterminateBar);
-        mTakePhoto = findViewById(R.id.takePhoto);
-        recyclerView = findViewById(R.id.recyclerView);
-        fabMenu = findViewById(R.id.fabMenu);
-        walletAdapter = new WalletAdapter(ssWalletList);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setAdapter(walletAdapter);
-
-        mGetPhoto.setOnClickListener(new View.OnClickListener() {
+    // TODO: LOAD Views and listeners on creation
+    private void setup() {
+        fab = findViewById(R.id.fab);
+        fab.setImageResource(android.R.drawable.ic_input_add);
+        fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 // get photo from gallery
                 Intent photoPickerIntent = new Intent(Intent.ACTION_PICK);
                 photoPickerIntent.setType("image/*");
                 startActivityForResult(photoPickerIntent, REQUEST_CHOOSE_PHOTO);
-                fabMenu.close(true);
             }
         });
+        photoDirectory = new File(getFilesDir(), "pictures");
+        walletDirectory = new File(getFilesDir(), "wallets");
+        if (!photoDirectory.exists()) {
+            System.out.println("setup(): Photo directory does not exist. Creating....");
+            photoDirectory.mkdirs();
+            System.out.println("setup(): Done....");
+        }
+        if (!walletDirectory.exists()) {
+            System.out.println("setup(): Wallet Directory does not exist. Creating....");
+            walletDirectory.mkdirs();
+            System.out.println("setup(): Done....");
+        }
+        // recyclerview
 
-        mTakePhoto.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dispatchTakePictureIntent();
-                fabMenu.close(true);
+        recyclerView = findViewById(R.id.recyclerview);
+        recyclerView.setHasFixedSize(true);
 
-            }
-        });
-
+        // recyclerview layout manager
+        RecyclerView.LayoutManager layoutManager = new GridLayoutManager(this, 2);
+        recyclerView.setLayoutManager(layoutManager);
+        adapter = new CustomAdapter(this, photographicWalletList);
 
 
-        if(sharedPreferences.getBoolean(FIRST_TIME_SETUP, true)) {
-            Log.i("first time setup", "Blockchain SPV initializing....");
+        loadWalletCounter();
+        loadPhotographicWallets();
+        recyclerView.setAdapter(adapter);
 
-            Toast.makeText(this, "Blockchain SPV initializing!", Toast.LENGTH_SHORT).show();
-            sharedPreferences.edit().putBoolean(FIRST_TIME_SETUP, false);
+    }
+
+    // TODO: GET Wallet Counter
+    private void loadWalletCounter() {
+        walletCounter = MyPreferences.getWalletCounter(this, MyPreferences.WALLET_FILE, WALLET_FILE_DEFAULT_VALUE);
+        System.out.println("getWalletCounter(): You have " + walletCounter + " wallets");
+    }
+
+    // TODO: SET Wallet Counter
+    private void setWalletCounter() {
+        MyPreferences.setWalletCounter(this, MyPreferences.WALLET_FILE, walletCounter);
+        System.out.println("setWalletCounter(): You now have " + walletCounter + " wallet(s)");
+    }
+
+    private void loadPhotographicWallets() {
+
+        if(walletCounter == 0) {
+
+            System.out.println("loadPhotographicWallets(): No photographic wallet list found.");
+            System.out.println("loadPhotographicWallets(): Initiating new list...");
+            photographicWalletList = new ArrayList<>();
+            System.out.println("loadPhotographicWallets(): Done!");
+
         } else {
-            Toast.makeText(this, "Blockchain SPV already written!", Toast.LENGTH_SHORT).show();
-        }
+
+            System.out.println("loadPhotographicWallets(): Multiple photographic wallets detected!");
+            System.out.println("loadPhotographicWallets(): Retrieving them now....");
 
 
-    }
-    public boolean isFilePresent(String fileName) {
-        String path = getFilesDir().getAbsolutePath() + "/" + fileName;
-        File file = new File(path);
-        return file.exists();
-    }
 
-    private void dispatchTakePictureIntent() {
+            File f = new File(String.valueOf(photoDirectory));
+            File file[] = f.listFiles();
+            System.out.println("loadPhotographicWallets(): walletCounter = " + walletCounter + " , " + "photodirectory size = " + file.length
+            );
+            for(int i = 0; i < file.length; i++) {
+                System.out.println(getUriFromImageFile(file[i]).toString());
+                try {
+                    Wallet wallet = Wallet.loadFromFile(new File(walletDirectory + "/wallet" + i + ".wallet"));
+                    Uri uri = getUriFromImageFile(file[i]);
 
-        //TODO: Add custom camera class instead of using INTENT
+                    photographicWalletList.add(new PhotographicWallet(wallet, uri));
+                    recyclerView.setAdapter(adapter);
+                    adapter.notifyDataSetChanged();
 
-        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        // Ensure that there's a camera activity to handle the intent
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-            // Create the File where the photo should go
-            File photoFile = null;
-            try {
-                photoFile = createImageFile();
-                fileUri = Uri.fromFile(photoFile);
-            } catch (IOException ex) {
-                // Error occurred while creating the File
-
+                    System.out.println("loadPhotographicWallets(): This entry reads " + photographicWalletList.get(i).getWallet().toString()
+                    + "on file " + photographicWalletList.get(i).getUriImagePath());
+                    System.out.println("loadWalletsFromFile(): Wallet #" + i + " has " + photographicWalletList.get(i).getWallet().getBalance() + " spendable satoshis");
+                    System.out.println("loadWalletsFromFile(): Current receive address = " + photographicWalletList.get(i).getWallet().currentReceiveAddress().toString());
+                } catch (UnreadableWalletException e) {
+                    e.printStackTrace();
+                }
             }
-            // Continue only if the File was successfully created
-            if (photoFile != null) {
-                Uri photoURI = FileProvider.getUriForFile(this,
-                        "com.cryptoapp.subspace.fileprovider",
-                        photoFile);
-                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
-                startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
-            }
+            System.out.println("loadPhotographicWallets(): There are " + walletCounter + " photographic wallets in your collection");
+            System.out.println("loadPhotographicWallets(): " + photographicWalletList.toString());
+            recyclerView.setAdapter(adapter);
+            adapter.notifyDataSetChanged();
+            System.out.println("loadPhotographicWallets(): " + adapter.getItemCount());
         }
     }
 
+    // TODO: LOAD Wallets from File
+    private void loadWalletsFromFile() {
+//        System.out.println("loadWalletsFromFile(): Loading wallets....");
+//        try {
+//            state = "onLoad";
+//            for (int i = 0; i < walletCounter; i++) {
+//
+//                //TODO: need some way to bind wallet with picture - SOLVED with hash map
+//                //Bitmap picture = picList[i];
+//                //pWalletList.add( new PhotographicWallet(picture, wallet))
+//
+//                System.out.println("loadWalletsFromFile(): Wallet #" + (i+1) + " has " + wallet.getBalance() + " spendable satoshis");
+//                Wallet wallet1 = pWalletList.get(i);
+//                System.out.println("loadWalletsFromFile(): Wallet " + (i+1) + " current receive address = " + wallet1.currentReceiveAddress().toString());
+//            }
+//        } catch (UnreadableWalletException e) {
+//            e.printStackTrace();
+//        }
+//
+//        System.out.println("loadWalletsFromFile(): There are " + pWalletList.size() + " wallets currently loaded");
+    }
 
-    /*
-    * Returns photo from gallery
-    * Converts bitmap image into byte array with GetBytesFromBitmap
-    * Hashes byte array with sha512
-    * Uses substring of digest as Deterministic seed entropy value
-    * TODO: change unixtime variable to reflect when the wallet was created from the image
-    * TODO: and not when it is retrieved from gallery
-    *
-    * */
+    // TODO: onActivityForResult callback for selected image
+    @Override
+    protected void onActivityResult(int reqCode, int resultCode, Intent data) {
+        super.onActivityResult(reqCode, resultCode, data);
 
-        @Override
-        protected void onActivityResult(int reqCode, int resultCode, Intent data) {
-            super.onActivityResult(reqCode, resultCode, data);
+        if (reqCode == REQUEST_CHOOSE_PHOTO) {
+            if (resultCode == RESULT_OK) {
+                try {
+                    //get data from callback
+                    final Uri imageUri = data.getData();
+                    final InputStream imageStream = getContentResolver().openInputStream(imageUri);
+                    final Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
 
-            if (reqCode == REQUEST_IMAGE_CAPTURE) {
-                Uri uri = fileUri;
-                Bitmap img = BitmapFactory.decodeFile(uri.getPath());
-
-               addWallet(img, 0);
-
-                new ConvertBitmapToNewWallet().execute(img);
-            }
-
-            if (reqCode == REQUEST_CHOOSE_PHOTO) {
-                if(resultCode == RESULT_OK) {
+                    //create file that stores bitmap image
+                    photoFile = null;
                     try {
-                        final Uri imageUri = data.getData();
-                        final InputStream imageStream = getContentResolver().openInputStream(imageUri);
-                        final Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
-                        balance = 2;
-                        image = selectedImage;
+                        photoFile = createImageFile();
 
-                        ssWalletList.add(
-                                new SSWallet(selectedImage, balance)
-                        );
-                        walletAdapter.notifyDataSetChanged();
-                        currentListPosition = ssWalletList.size() - 1;
-
-                        String imgString = Base64.encodeToString(getBytesFromBitmap(selectedImage),
-                                Base64.NO_WRAP);
+                    } catch (IOException ex) {
+                        // Error occurred while creating the File
+                    }
+                    if(photoFile != null) {
+                        saveImageToFile(selectedImage, photoFile);
+                        loadImageFromFile(photoFile);
 
 
-                        String hashed = Hashing.sha512()
-                                .hashBytes(getBytesFromBitmap(selectedImage))
-                                .toString();
-
-                        String hashed2 = Hashing.sha512()
-                                .hashString(imgString, StandardCharsets.UTF_8)
-                                .toString();
-
-                        //check hash in console
-                        Log.i("imgstringhash", hashed);
-                        try {
-                            byte[] seedBytes = hashed2.substring(0, 16).getBytes();
-                            seed = new DeterministicSeed(seedBytes, "", earliestKeyCreationTime);
-                            kit = new WalletAppKit(params, getFilesDir(), "subspace1");
-                            kit.restoreWalletFromSeed(seed).setCheckpoints(getAssets()
-                                    .open("checkpoints-testnet.txt"))
-                                    .setDownloadListener(bListener)
-                                    .setBlockingStartup(false)
-                                    .startAsync();
-
-
-                        } catch (IOException e) {
-                            e.printStackTrace();
-
-
-                        }
-
-
-                    } catch (FileNotFoundException e) {
-                        e.printStackTrace();
-                        Toast.makeText(this, "Something went wrong", Toast.LENGTH_LONG).show();
                     }
 
-                } else {
-                    Toast.makeText(this, "No img selected", Toast.LENGTH_LONG).show();
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-
+            } else {
+                System.out.println("no image was selected. Backing out...");
             }
         }
+    }
 
+    // TODO: Create image file
     private File createImageFile() throws IOException {
+
+        System.out.println("createImageFile(): Creating file...");
         // Create an image file name
-//        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-          String timeStamp = earliestKeyCreationTime.toString();
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+//        String timeStamp = earliestKeyCreationTime.toString();
         String imageFileName = "JPEG_" + timeStamp + "_";
-        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File storageDir = photoDirectory;
         File image = File.createTempFile(
                 imageFileName,  /* prefix */
                 ".jpg",         /* suffix */
                 storageDir      /* directory */
         );
 
-        // Save a file: path for use with ACTION_VIEW intents
-        mCurrentPhotoPath = image.getAbsolutePath();
+        System.out.println("createImageFile(): Success!");
+
+        System.out.println("createImageFile(): You now have " + photographicWalletList.size() + " file(s) in your private image directory");
+        for(int i=0; i < photographicWalletList.size(); i++) {
+            System.out.println("createImageFile(): Path to image file #" + i + " = " + photographicWalletList.get(i).getUriImagePath().toString());
+        }
         return image;
     }
 
+    // TODO: Save/copy Image to File location
+    private void saveImageToFile(Bitmap image, File file) {
+        try {
+            FileOutputStream out = new FileOutputStream(file);
+            out.write(getBytesFromBitmap(image));
+            out.close();
+            System.out.println("saveImageToFile(): image saved to file... " + file.toString());
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
-    private void addWallet(Bitmap bitmap, double balance) {
+    }
 
-            System.out.println("size" + currentListPosition);
-            ssWalletList.remove(currentListPosition);
-        ssWalletList.add(
-                new SSWallet(bitmap, balance)
-        );
+    // TODO: Loads an image from a given file path
+    private void loadImageFromFile(File file) {
 
-        walletAdapter.notifyDataSetChanged();
+        Uri imageUri = Uri.fromFile(file);
+        try {
+            System.out.println("loadImageFromFile(): Loading image from file...." + imageUri.toString());
+            InputStream imageStream = getContentResolver().openInputStream(imageUri);
+            final Bitmap selectedImage = BitmapFactory.decodeStream(imageStream);
+
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+    // TODO: Loads an Uri address from a given file
+    private Uri getUriFromImageFile(File file) {
+        System.out.println("getUriFromImageFile(): getting Uri address from file....");
+        Uri imageUri = Uri.fromFile(file);
+        System.out.println("getUriFromImageFile(): Success! File exists at " + imageUri.toString());
+            return imageUri;
+    }
+
+
+    // TODO: Get byte array from Bitmap image
+    private byte[] getBytesFromBitmap(Bitmap bitmap) {
+        System.out.println("getBytesFromBitmap(): Initiating compression...");
+
+        System.out.println("getBytesFromBitmap(): Success!");
+        return stream.toByteArray();
+
+    }
+
+
+    // TODO: Create Wallet with filepath and image digest
+    private void createWallet(File file, String image) {
+        final Uri imageUri = Uri.fromFile(file);
+
+        try {
+            System.out.println("createWallet(): Loading image from file...." + imageUri.toString());
+            InputStream imageStream = getContentResolver().openInputStream(imageUri);
+
+            seed = new DeterministicSeed(seedBytes, "", earliestKeyCreationTime);
+            System.out.println("createWallet(): Seed phrase = " + Joiner.on(" ").join(seed.getMnemonicCode()));
+            kit = new WalletAppKit(params, walletDirectory,  "wallet" + walletCounter) {
+                @Override
+                protected void onSetupCompleted() {
+                    wallet().allowSpendingUnconfirmedTransactions();
+                    System.out.println("onSetupCompleted(): Setting up wallet listeners...");
+                    setWalletListeners(wallet());
+                    System.out.println("onSetupCompleted(): Done!");
+                    System.out.println("onSetupCompleted(): Mapping photo to wallet file location...");
+                    pWalletMap.put(photoFile, new File(walletDirectory + "/wallet" + walletCounter + ".wallet"));
+                    System.out.println("onSetupCompleted(): Done!");
+                    System.out.println("onSetupCompleted(): Retrieving map entries...");
+                    System.out.println("onSetupCompleted(): Wallet map.............. == " + pWalletMap.toString());
+                    walletCounter++;
+                    setWalletCounter();
+                    photographicWalletList.add(new PhotographicWallet(wallet(), imageUri));
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            adapter.notifyDataSetChanged();
+                        }
+                    });
+
+                    System.out.println("onSetupCompleted(): Photographic wallet list size = " + photographicWalletList.size());
+                }
+            };
+            kit.restoreWalletFromSeed(seed).setCheckpoints(getAssets()
+                    .open("checkpoints.txt"))
+                    .setDownloadListener(bListener)
+                    .setBlockingStartup(false)
+                    .setAutoSave(true)
+                    .startAsync();
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
 
 
+    // TODO: Set up wallet listeners after setup = complete
+    private void setWalletListeners(Wallet wallet) {
+        wallet.addCoinsReceivedEventListener(new WalletCoinsReceivedEventListener() {
+            @Override
+            public void onCoinsReceived(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
+                System.out.println("onCoinsReceived(): Coins received. Your new balance is " + newBalance + " satoshis");
+            }
+        });
+        wallet.addCoinsSentEventListener(new WalletCoinsSentEventListener() {
+            @Override
+            public void onCoinsSent(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
 
+            }
+        });
+    }
+
+    // TODO: Blockchain Download Progress Tracker
     DownloadProgressTracker bListener = new DownloadProgressTracker() {
         @Override
         public void doneDownload() {
-              Log.i("wallet info", kit.wallet().getBalance().toFriendlyString());
-              setBalance();
+            System.out.println("doneDownload(): wallet info " + kit.wallet().toString());
+
+            System.out.println("doneDownload(): Wallet map.............. == " + pWalletMap.toString());
+
         }
-
-
 
         @Override
         protected void progress(double pct, int blocksSoFar, Date date) {
@@ -334,33 +401,20 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onChainDownloadStarted(Peer peer, int blocksLeft) {
             super.onChainDownloadStarted(peer, blocksLeft);
-            System.out.println("onChainDownloadStarted " + blocksLeft);
+            System.out.println("onChainDownloadStarted(): " + blocksLeft);
         }
 
         @Override
         public void onBlocksDownloaded(Peer peer, Block block, @Nullable FilteredBlock filteredBlock, int blocksLeft) {
             super.onBlocksDownloaded(peer, block, filteredBlock, blocksLeft);
             System.out.println("onBlocksDownloaded " + blocksLeft);
-            sw = Stopwatch.createStarted();
-
-            if(sw.elapsed(TimeUnit.SECONDS) >= 10) {
-                try {
-                kit.restoreWalletFromSeed(seed).setCheckpoints(getAssets()
-                            .open("checkpoints-testnet.txt"))
-                            .setDownloadListener(bListener)
-                            .setBlockingStartup(false)
-                            .startAsync()
-                            .awaitRunning();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-            }
 
             if(blocksLeft == 0) {
-                setBalance();
+
+                System.out.println("onBlocksDownloaded(): Wallet map.............. == " + pWalletMap.toString());
             }
-        }
+            }
+
 
         @Override
         protected void startDownload(int blocks) {
@@ -370,235 +424,5 @@ public class MainActivity extends AppCompatActivity {
     };
 
 
-    public void setBalance() {
+}
 
-        runOnUiThread(new Runnable() {
-
-            @Override
-            public void run() {
-                TextView setbalance = recyclerView.findViewHolderForAdapterPosition(currentListPosition).itemView.findViewById(R.id.accountBalanceView);
-                // Stuff that updates the UI
-                setbalance.setText(kit.wallet().getBalance().toFriendlyString());
-                balance = Double.parseDouble(kit.wallet().getBalance().toString());
-                ssWalletList.remove(currentListPosition);
-                ssWalletList.add(new SSWallet(image, balance));
-            }
-        });
-
-        Log.i("wallet info", kit.wallet().getBalance().toFriendlyString());
-    }
-
-
-
-
-
-
-    // convert from bitmap to byte array
-    public byte[] getBytesFromBitmap(Bitmap bitmap) {
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
-        return stream.toByteArray();
-    }
-
-
-
-
-    // The types specified here are the input data type, the progress type, and the result type
-    private class ConvertBitmapToRestoreWallet extends AsyncTask<Bitmap, String, String> {
-        @Override
-        protected String doInBackground(Bitmap... bitmaps) {
-            Bitmap bmp = bitmaps[0];
-            String imgString = Base64.encodeToString(getBytesFromBitmap(bmp),
-                    Base64.NO_WRAP);
-
-
-            String hashed = Hashing.sha512()
-                    .hashBytes(getBytesFromBitmap(bmp))
-                    .toString();
-
-            String hashed2 = Hashing.sha512()
-                    .hashString(imgString, StandardCharsets.UTF_8)
-                    .toString();
-
-
-
-            //check hash in console
-            Log.i("imgstringhash", hashed);
-            try {
-                byte[] seedBytes = hashed2.substring(0, 16).getBytes();
-                DeterministicSeed seed = new DeterministicSeed(seedBytes, "", earliestKeyCreationTime);
-                wallet = Wallet.fromSeed(params, seed);
-                Log.i("wallet", wallet.toString());
-                Log.i("wallet", wallet.currentReceiveAddress().toString());
-                kit = new WalletAppKit(params, getFilesDir(), "subspace1");
-                kit.restoreWalletFromSeed(seed).setCheckpoints(getAssets()
-                        .open("checkpoints-testnet.txt"))
-                        .setDownloadListener(bListener)
-                        .setBlockingStartup(false)
-                        .startAsync();
-
-
-            } catch (IOException e) {
-                e.printStackTrace();
-
-
-            } finally {
-
-            }
-
-
-            return null;
-        }
-
-        protected void onPreExecute() {
-            // Runs on the UI thread before doInBackground
-            // Good for toggling visibility of a progress indicator
-            progressBar.setVisibility(ProgressBar.VISIBLE);
-        }
-
-
-        protected void onProgressUpdate(String... values) {
-            // Executes whenever publishProgress is called from doInBackground
-            // Used to update the progress indicator
-//            progressBar.setProgress(values[0]);
-
-        }
-
-
-        protected void onPostExecute(String result) {
-            // This method is executed in the UIThread
-            // with access to the result of the long running task
-//            imageView.setImageBitmap(result);
-//            // Hide the progress bar
-            progressBar.setVisibility(ProgressBar.INVISIBLE);
-            final AlertDialog.Builder dialog =
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("DONE!");
-            final AlertDialog alert = dialog.create();
-            alert.show();
-
-
-
-// Hide after some seconds
-            final Handler handler  = new Handler();
-            final Runnable runnable = new Runnable() {
-                @Override
-                public void run() {
-                    if (alert.isShowing()) {
-                        alert.dismiss();
-
-                    }
-                }
-            };
-
-            alert.setOnDismissListener(new DialogInterface.OnDismissListener() {
-                @Override
-                public void onDismiss(DialogInterface dialog) {
-                    handler.removeCallbacks(runnable);
-                }
-            });
-
-            handler.postDelayed(runnable, 1000);
-
-            Log.i("onPostExecute called...", "All done!");
-        }
-
-
-    }
-
-    private class ConvertBitmapToNewWallet extends AsyncTask<Bitmap, String, String> {
-        @Override
-        protected String doInBackground(Bitmap... bitmaps) {
-            Bitmap bmp = bitmaps[0];
-            String imgString = Base64.encodeToString(getBytesFromBitmap(bmp),
-                    Base64.NO_WRAP);
-
-
-            String hashed = Hashing.sha512()
-                    .hashBytes(getBytesFromBitmap(bmp))
-                    .toString();
-
-            String hashed2 = Hashing.sha512()
-                    .hashString(imgString, StandardCharsets.UTF_8)
-                    .toString();
-
-
-
-            //check hash in console
-            Log.i("imgstringhash", hashed);
-            try {
-                byte[] seedBytes = hashed2.substring(0, 16).getBytes();
-                DeterministicSeed seed = new DeterministicSeed(seedBytes, "", earliestKeyCreationTime);
-                WalletAppKit kit = new WalletAppKit(params, getFilesDir(), "subspace1");
-                Log.i("Wallet", wallet.toString());
-
-
-
-            }finally {
-
-            }
-
-
-            return null;
-        }
-
-        protected void onPreExecute() {
-            // Runs on the UI thread before doInBackground
-            // Good for toggling visibility of a progress indicator
-            progressBar.setVisibility(ProgressBar.VISIBLE);
-        }
-
-
-        protected void onProgressUpdate(String... values) {
-            // Executes whenever publishProgress is called from doInBackground
-            // Used to update the progress indicator
-//            progressBar.setProgress(values[0]);
-
-        }
-
-
-        protected void onPostExecute(String result) {
-            // This method is executed in the UIThread
-            // with access to the result of the long running task
-//            imageView.setImageBitmap(result);
-//            // Hide the progress bar
-            progressBar.setVisibility(ProgressBar.INVISIBLE);
-            final AlertDialog.Builder dialog =
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("DONE!");
-            final AlertDialog alert = dialog.create();
-            alert.show();
-
-
-
-// Hide after some seconds
-            final Handler handler  = new Handler();
-            final Runnable runnable = new Runnable() {
-                @Override
-                public void run() {
-                    if (alert.isShowing()) {
-                        alert.dismiss();
-
-                    }
-                }
-            };
-
-            alert.setOnDismissListener(new DialogInterface.OnDismissListener() {
-                @Override
-                public void onDismiss(DialogInterface dialog) {
-                    handler.removeCallbacks(runnable);
-                }
-            });
-
-            handler.postDelayed(runnable, 1000);
-
-            Log.i("onPostExecute called...", "All done!");
-        }
-
-
-    }
-
-
-
-
-    }
